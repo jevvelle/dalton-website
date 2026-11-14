@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Project Dalton - Bulacan State University Team Sepia</title>
+<meta name="description" content="An AI-powered assistive tool that helps individuals with color vision deficiency recognize and understand colors for more inclusive daily interactions.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-dots"><span></span><span></span><span></span></span>
+    Project Dalton
+  </div>
+  <nav class="topnav" id="topnav">
+    <a data-page="home" class="active">Home</a>
+    <a data-page="colorassist">Color Assist</a>
+    <a data-page="about">About</a>
+  </nav>
+</header>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-label">NAVIGATION</div>
+    <div class="sidebar-link active" data-page="home">Home</div>
+    <div class="sidebar-link" data-page="colorassist">Color Assist</div>
+    <div class="sidebar-link" data-page="ishihara">Ishihara Test</div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ============ HOME PAGE ============ -->
+    <section class="page" id="page-home">
+      <div class="hero">
+        <div>
+          <h1>Color, made clear for every kind of eye.</h1>
+          <p class="lead">Project Dalton is a free assistive toolkit for people with color vision deficiency. Upload any photo and isolate colors, sample exact values, simulate how others see, and practice with hands-on activities.</p>
+          <div class="hero-actions">
+            <button class="btn primary" data-goto="colorassist">Open Color Assist</button>
+            <button class="btn" data-goto="ishihara">Try the Ishihara Test</button>
+          </div>
+        </div>
+        <div class="hero-art">
+          <svg width="260" height="220" viewBox="0 0 260 220" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="90" cy="90" r="70" fill="var(--crayon-red)" opacity="0.9"/>
+            <circle cx="160" cy="70" r="55" fill="var(--crayon-blue)" opacity="0.85"/>
+            <circle cx="140" cy="150" r="60" fill="var(--crayon-yellow)" opacity="0.9"/>
+            <circle cx="200" cy="150" r="38" fill="var(--crayon-green)" opacity="0.85"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--crayon-red);color:#fff;">AI</div>
+          <h3>AI Color Assist</h3>
+          <p>See any photo the way protanopia, deuteranopia, or tritanopia vision would perceive it.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--crayon-blue);color:#fff;">◐</div>
+          <h3>Color Isolation</h3>
+          <p>Trace a clean outline around every region that matches one chosen color.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--crayon-green);color:#fff;">✎</div>
+          <h3>Color Picker</h3>
+          <p>Hover an eyedropper over a photo to read the exact hex, RGB, and color name.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--crayon-purple);color:#fff;">+</div>
+          <h3>Activities</h3>
+          <p>Practice mixing colors and build intuition with a hands-on reference guide.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COLOR ASSIST PAGE ============ -->
+    <section class="page" id="page-colorassist" style="display:none;">
+      <div class="eyebrow"><span class="eyebrow-dot"></span>COLOR ASSIST</div>
+
+      <div class="pillbar-wrap">
+        <div class="pillbar-shadow"></div>
+        <div class="pillbar" id="ca-pillbar">
+          <div class="pill active" data-tab="ai">AI Color Assist</div>
+          <div class="pill" data-tab="isolation">Color Isolation</div>
+          <div class="pill" data-tab="picker">Color Picker</div>
+          <div class="pill" data-tab="activities">Activities</div>
+          <div class="pill" data-tab="explanation">Explanation</div>
+        </div>
+      </div>
+
+      <!-- ---- AI Color Assist tab ---- -->
+      <div class="ca-tab" id="tab-ai">
+        <div class="eyebrow"><span class="eyebrow-dot" style="background:var(--crayon-red)"></span>AI COLOR ASSIST</div>
+        <h2 class="card-title" style="font-size:20px;margin-bottom:6px;">Simulate a different kind of vision.</h2>
+        <p class="section-desc">Upload a photo, then compare how it looks normally against how it would appear with a chosen type of color vision deficiency.</p>
+
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px;">
+          <button class="btn primary" id="ai-camera-btn">Live Camera</button>
+          <button class="btn" id="ai-dalton-btn">Dalton's Camera</button>
+          <button class="btn" id="ai-upload-btn">Upload File</button>
+          <span class="hint-text" id="ai-upload-status">No image uploaded yet.</span>
+        </div>
+
+        <video id="ai-camera-video" autoplay playsinline muted style="display:none;"></video>
+
+        <div class="ai-layout">
+          <div class="compare-grid">
+            <div class="card-wrap">
+              <div class="card-shadow blue"></div>
+              <div class="card">
+                <div class="pane-title"><span class="eyebrow-dot" style="background:var(--crayon-red); display:inline-block; margin-right:6px;"></span>Normal View</div>
+                <div class="pane-canvas-box" style="min-height:260px;">
+                  <canvas id="ai-canvas-normal"></canvas>
+                  <span class="placeholder-text" id="ai-placeholder-normal" style="text-align: center;">Upload an image to begin</span>
+                </div>
+                <p class="pane-caption">The scene exactly as captured — no filtering applied.</p>
+              </div>
+            </div>
+            <div class="card-wrap">
+              <div class="card-shadow green"></div>
+              <div class="card">
+                <div class="pane-title">Simulated View <span class="vision-badge" id="ai-vision-badge">Protanomaly</span></div>
+                <div class="pane-canvas-box" style="min-height:260px;">
+                  <canvas id="ai-canvas-simulated"></canvas>
+                  <span class="placeholder-text" id="ai-placeholder-simulated">Upload an image to begin</span>
+                </div>
+                <p class="pane-caption">Updates instantly as you choose a vision type below.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="vision-picker-wrap">
+            <div class="card-wrap">
+              <div class="card-shadow purple"></div>
+              <div class="card vision-picker-card">
+                <div class="vision-group">
+                  <div class="vision-group-title">Anomalous Trichromacy</div>
+                  <div class="vision-options" data-group="anomalous">
+                    <div class="vision-option active" data-vision="protanomaly">Protanomaly</div>
+                    <div class="vision-option" data-vision="deuteranomaly">Deuteranomaly</div>
+                    <div class="vision-option" data-vision="tritanomaly">Tritanomaly</div>
+                  </div>
+                </div>
+                <div class="vision-group">
+                  <div class="vision-group-title">Dichromatic View</div>
+                  <div class="vision-options" data-group="dichromatic">
+                    <div class="vision-option" data-vision="protanopia">Protanopia</div>
+                    <div class="vision-option" data-vision="deuteranopia">Deuteranopia</div>
+                    <div class="vision-option" data-vision="tritanopia">Tritanopia</div>
+                  </div>
+                </div>
+                <div class="vision-group">
+                  <div class="vision-group-title">Monochromatic View</div>
+                  <div class="vision-options" data-group="monochromatic">
+                    <div class="vision-option" data-vision="achromatopsia">Achromatopsia</div>
+                    <div class="vision-option" data-vision="bluecone">Blue Cone Monochromacy</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="explain-panel" id="ai-explain-panel">
+          <h3>Protanomaly</h3>
+          <p>A mild form of red-cone deficiency. Reds, oranges, and greens look muted and can shift toward each other, though color perception is only partly affected.</p>
+        </div>
+      </div>
+
+      <!-- ---- Color Isolation tab ---- -->
+      <div class="ca-tab" id="tab-isolation" style="display:none;">
+        <div class="eyebrow"><span class="eyebrow-dot" style="background:var(--crayon-yellow)"></span>COLOR ISOLATION</div>
+        <h2 class="card-title" style="font-size:20px;margin-bottom:6px;">See one color at a time, live from Dalton.</h2>
+        <p class="section-desc" style="max-width:none;">Pick a color below and Dalton's camera feed will keep that color vivid while turning everything else grayscale — useful for reading color-coded charts, wires, or diagrams in real time. All of the image processing runs on the Python backend, not in your browser.</p>
+
+        <div class="swatch-row" id="iso-swatches"></div>
+
+        <div class="compare-grid">
+          <div class="card-wrap">
+            <div class="card-shadow blue"></div>
+            <div class="card">
+              <div class="pane-title">Dalton's Camera</div>
+              <div class="pane-canvas-box" id="iso-stream-box" style="min-height:260px;">
+                <img id="iso-stream" alt="Dalton camera feed" style="display:none; width:100%; height:auto;">
+                <span class="placeholder-text" id="iso-placeholder">Connecting to Dalton's camera…</span>
+              </div>
+              <p class="pane-caption" id="iso-caption">Showing the normal feed. Pick a color below to isolate it.</p>
+            </div>
+          </div>
+          <div class="card-wrap">
+            <div class="card-shadow green"></div>
+            <div class="card">
+              <div class="pane-title">Connection Status</div>
+              <div class="sample-row"><span>Backend</span><span id="iso-status-backend">Checking…</span></div>
+              <div class="sample-row"><span>ESP32-CAM</span><span id="iso-status-camera">Checking…</span></div>
+              <div class="sample-row"><span>Active mode</span><span id="iso-status-mode">Normal</span></div>
+              <p class="pane-caption" style="margin-top:14px;" id="iso-status-hint">Make sure the Python backend (<code>app.py</code>) is running and Dalton's ESP32-CAM is powered on and connected to the same network.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- Color Picker tab ---- -->
+      <div class="ca-tab" id="tab-picker" style="display:none;">
+        <div class="eyebrow"><span class="eyebrow-dot" style="background:var(--crayon-green)"></span>COLOR PICKER</div>
+        <h2 class="card-title" style="font-size:20px;margin-bottom:6px;">Drag the eyedropper over any part of your photo.</h2>
+        <p class="section-desc">Upload an image, then move your cursor across it. Project Dalton reads the exact pixel under your cursor and tells you its hex code and closest color name.</p>
+
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px;">
+          <button class="btn" id="pick-dalton-btn">Dalton's Camera</button>
+          <button class="btn" id="pick-upload-btn">Upload File</button>
+        </div>
+
+        <div class="compare-grid" style="grid-template-columns: 1.3fr .9fr;">
+          <div class="card-wrap">
+            <div class="card-shadow blue"></div>
+            <div class="card">
+              <div class="pane-title">Your Photo</div>
+              <div class="pane-canvas-box" id="pick-canvas-box" style="cursor:none;">
+                <canvas id="pick-canvas"></canvas>
+                <span class="placeholder-text" id="pick-placeholder">Upload an image to begin</span>
+                <div class="eyedropper-cursor" id="eyedropper" style="display:none;">
+                  <svg viewBox="0 0 24 24" width="22" height="22"><path d="M19.4 4.6a2 2 0 0 0-2.8 0l-2 2-1-1-1.4 1.4 1 1L5 16.2V19h2.8l8.2-8.2 1 1 1.4-1.4-1-1 2-2a2 2 0 0 0 0-2.8Z" fill="#fff" stroke="#1c1a17" stroke-width="1.2"/></svg>
+                </div>
+              </div>
+              <p class="pane-caption" id="pick-caption">Move over the image to sample a color.</p>
+            </div>
+          </div>
+          <div class="card-wrap">
+            <div class="card-shadow green"></div>
+            <div class="card">
+              <div class="pane-title">Sampled Color</div>
+              <div class="sample-swatch" id="pick-sample-swatch"></div>
+              <div class="sample-row"><span>Hex</span><span id="pick-hex">—</span></div>
+              <div class="sample-row"><span>RGB</span><span id="pick-rgb">—</span></div>
+              <div class="sample-row"><span>Closest name</span><span id="pick-name">—</span></div>
+              <div style="margin-top:12px; font-weight:700; font-size:13.5px; color:var(--ink-soft);">Recent samples</div>
+              <div class="recent-list" id="pick-recent"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- Activities tab ---- -->
+      <div class="ca-tab" id="tab-activities" style="display:none;">
+        <div class="eyebrow"><span class="eyebrow-dot" style="background:var(--crayon-purple)"></span>ACTIVITIES</div>
+        <h2 class="card-title" style="font-size:20px;margin-bottom:6px;">Color Mixing</h2>
+        <p class="section-desc">Pick two colors below to see what they mix into. Tap a circle to choose it, then tap another to mix.</p>
+
+        <div class="card-wrap" style="margin-bottom:22px;">
+          <div class="card-shadow green"></div>
+          <div class="card">
+            <div class="mix-row">
+              <div class="mix-slot">
+                <div class="mix-circle" id="mix-slot-a"></div>
+                <div class="mix-label" id="mix-label-a">Pick a color</div>
+              </div>
+              <div class="mix-op">+</div>
+              <div class="mix-slot">
+                <div class="mix-circle" id="mix-slot-b"></div>
+                <div class="mix-label" id="mix-label-b">Pick a color</div>
+              </div>
+              <div class="mix-op">=</div>
+              <div class="mix-slot">
+                <div class="mix-circle" id="mix-slot-result"></div>
+                <div class="mix-label" id="mix-label-result">?</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="circle-row" id="mix-circles"></div>
+
+        <div class="card-wrap">
+          <div class="card-shadow purple"></div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:14px;">Combinations you can try</div>
+            <div class="combo-grid" id="combo-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- Explanation tab ---- -->
+      <div class="ca-tab" id="tab-explanation" style="display:none;">
+        <div class="eyebrow"><span class="eyebrow-dot" style="background:var(--crayon-blue)"></span>EXPLANATION</div>
+        <h2 class="card-title" style="font-size:20px;margin-bottom:14px;">Understanding color vision deficiency</h2>
+
+        <div class="card-wrap">
+          <div class="card-shadow blue"></div>
+          <div class="card">
+            <p class="section-desc" style="margin-bottom:16px;">Color vision deficiency happens when the light-sensing cone cells in the eye respond differently than typical, making some colors harder to tell apart. It's usually inherited and affects roughly 1 in 12 men and 1 in 200 women worldwide. Here are the three types Project Dalton simulates:</p>
+            <div class="feature-grid">
+              <div class="feature-card">
+                <h3>Protanopia</h3>
+                <p>Missing or reduced red-sensing cones. Reds look darker and can be mistaken for black, brown, or green.</p>
+              </div>
+              <div class="feature-card">
+                <h3>Deuteranopia</h3>
+                <p>Missing or reduced green-sensing cones. Reds and greens both shift toward similar brownish-yellow tones.</p>
+              </div>
+              <div class="feature-card">
+                <h3>Tritanopia</h3>
+                <p>Missing or reduced blue-sensing cones, much rarer. Blues and yellows are the hardest pair to tell apart.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ISHIHARA TEST PAGE ============ -->
+    <section class="page" id="page-ishihara" style="display:none;">
+      <div class="eyebrow"><span class="eyebrow-dot" style="background:var(--crayon-red)"></span>ISHIHARA TEST</div>
+      <h1 class="page-title">Quick color vision screening.</h1>
+      <p class="section-desc" style="margin-top:-14px;">Look at each plate and choose the number you see. This is a simplified screening tool, not a medical diagnosis.</p>
+
+      <div class="card-wrap">
+        <div class="card-shadow blue"></div>
+        <div class="card" id="ishihara-card">
+          <div class="ishihara-progress" id="ishihara-progress">Plate 1 of 6</div>
+          <div class="ishihara-plate-wrap">
+            <canvas id="ishihara-canvas" width="280" height="280" class="ishihara-plate"></canvas>
+          </div>
+          <div class="ishihara-options" id="ishihara-options"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ABOUT PAGE ============ -->
+    <section class="page" id="page-about" style="display:none;">
+      <div class="eyebrow"><span class="eyebrow-dot" style="background:var(--crayon-green)"></span>ABOUT</div>
+      <h1 class="page-title">Project Dalton</h1>
+
+      <div class="about-block">
+        <p>Project Dalton is an AI-powered assistive tool that helps individuals with color vision deficiency recognize and understand colors for more inclusive daily interactions. It was built as a research and development project by Team Sepia at Bulacan State University.</p>
+      </div>
+
+      <div class="card-wrap" style="margin-bottom:26px;">
+        <div class="card-shadow purple"></div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px;">Why "Dalton"?</div>
+          <p class="section-desc" style="margin-bottom:0;">The project is named after John Dalton, the scientist who published the first scientific paper on color blindness in 1798, after studying his own condition.</p>
+        </div>
+      </div>
+
+      <div class="card-title" style="margin-bottom:12px;">Team Sepia</div>
+      <div class="team-grid">
+        <div class="team-card"><div class="team-avatar" style="background:var(--crayon-red);"></div>Member One</div>
+        <div class="team-card"><div class="team-avatar" style="background:var(--crayon-blue);"></div>Member Two</div>
+        <div class="team-card"><div class="team-avatar" style="background:var(--crayon-green);"></div>Member Three</div>
+        <div class="team-card"><div class="team-avatar" style="background:var(--crayon-yellow);"></div>Member Four</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer class="footer">
+  <strong>Project Dalton</strong>
+  <span class="credit">Developed by <a href="#">BULSU SEPIA</a></span>
+</footer>
+
+<input type="file" accept="image/*" id="file-input" class="upload-input">
+
+<script src="js/app.js"></script>
+<script src="js/colorAssist.js"></script>
+<script src="js/isolation.js"></script>
+<script src="js/ishihara.js"></script>
+</body>
+</html>
