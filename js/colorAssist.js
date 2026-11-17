@@ -53,29 +53,13 @@ function fitCanvasToSource(canvas, source, maxWidth) {
 }
 
 // ---------- Central upload dispatcher ----------
-// A file uploaded from any one of the three photo-based tools (AI Color
-// Assist, Color Picker, Color Isolation) becomes the shared image for all
-// three, regardless of which tab's "Upload File" button was pressed.
 window.onImageUploaded = function (target, img) {
   AIAssist.setImage(img);
   Picker.setImage(img);
-  // NOTE: LocalIsolation is declared with `const` in isolation.js, so it is
-  // never a property of `window` (only `var`/function declarations become
-  // window properties from a classic <script>). Check the identifier itself
-  // instead of `window.LocalIsolation`, which would always be undefined.
   if (typeof LocalIsolation !== "undefined") LocalIsolation.setImage(img);
 };
 
 // ---------- Shared Dalton ESP32-CAM feed (unprocessed) ----------
-// A single hidden <img> pointed at the Flask backend's /video_feed_raw
-// endpoint, shared by AI Color Assist and the Color Picker so both tools
-// can use Dalton's live camera. This is deliberately a *different* endpoint
-// from the Color Isolation tab's /video_feed — that one applies whatever
-// HSV isolation mode is currently selected, which would corrupt vision
-// simulation and eyedropper sampling here. See backend/routes.py for the
-// distinction. Because both endpoints read from the same shared camera
-// thread, using this alongside Color Isolation still opens only one
-// connection to the ESP32-CAM itself.
 const DaltonCam = {
   img: null,
   started: false,
@@ -86,6 +70,7 @@ const DaltonCam = {
   ensure() {
     if (this.img) return this.img;
     this.img = document.createElement("img");
+    this.img.crossOrigin = "anonymous";
     this.img.style.display = "none";
     this.img.onload = () => {
       this.connected = true;
@@ -104,9 +89,8 @@ const DaltonCam = {
     this.ensure();
     if (this.started && this.connected) return;
     this.started = true;
-    // Cache-bust so a fresh connection is attempted if a previous one
-    // failed (e.g. the backend wasn't running yet on first click).
-    this.img.src = "/video_feed_raw?t=" + Date.now();
+    const baseUrl = typeof BACKEND_URL !== "undefined" ? BACKEND_URL : "";
+    this.img.src = `${baseUrl}/video_feed_raw?t=${Date.now()}`;
   },
 
   getImage() {
@@ -141,15 +125,12 @@ const DaltonCam = {
 // AI COLOR ASSIST — vision simulation
 // =====================================================================
 const VISION_MATRICES = {
-  // Anomalous trichromacy — mild shifts, one cone type is present but shifted.
   protanomaly: [0.817, 0.183, 0, 0.333, 0.667, 0, 0, 0.125, 0.875],
   deuteranomaly: [0.8, 0.2, 0, 0.258, 0.742, 0, 0, 0.142, 0.858],
   tritanomaly: [0.967, 0.033, 0, 0, 0.733, 0.267, 0, 0.183, 0.817],
-  // Dichromatic — one cone type is missing entirely.
   protanopia: [0.567, 0.433, 0, 0.558, 0.442, 0, 0, 0.242, 0.758],
   deuteranopia: [0.625, 0.375, 0, 0.7, 0.3, 0, 0, 0.3, 0.7],
   tritanopia: [0.95, 0.05, 0, 0, 0.433, 0.567, 0, 0.475, 0.525],
-  // Monochromatic — little to no color discrimination.
   achromatopsia: [0.299, 0.587, 0.114, 0.299, 0.587, 0.114, 0.299, 0.587, 0.114],
   bluecone: [0.01775, 0.10945, 0.87262, 0.01775, 0.10945, 0.87262, 0.01775, 0.10945, 0.87262],
 };
@@ -189,8 +170,8 @@ const VISION_INFO = {
 };
 
 const AIAssist = {
-  source: null, // an <img> element (uploaded photo or Dalton's feed) or the live <video> element
-  liveMode: null, // null | "webcam" | "dalton"
+  source: null,
+  liveMode: null,
   stream: null,
   video: null,
   rafId: null,
@@ -223,7 +204,6 @@ const AIAssist = {
       else this.startDaltonCam();
     });
 
-    // Stop whatever live source is active if the person leaves this tab.
     document.querySelectorAll("#ca-pillbar .pill").forEach((p) => {
       p.addEventListener("click", () => {
         if (p.dataset.tab !== "ai") this.stopLive();
@@ -357,17 +337,12 @@ const AIAssist = {
   },
 };
 
-// Note: the Color Isolation feature that used to live here now runs on the
-// Python backend (see backend/color_processor.py) and is driven by
-// js/isolation.js, which talks to the Flask /video_feed and /set_color
-// endpoints instead of processing canvas pixels in the browser.
-
 // =====================================================================
 // COLOR PICKER — eyedropper
 // =====================================================================
 const Picker = {
-  source: null, // an <img> element: uploaded photo or Dalton's live feed
-  liveMode: null, // null | "dalton"
+  source: null,
+  liveMode: null,
   rafId: null,
   canvas: null,
   recents: [],
@@ -382,7 +357,6 @@ const Picker = {
       else this.startDaltonCam();
     });
 
-    // Stop the live feed if the person leaves this tab.
     document.querySelectorAll("#ca-pillbar .pill").forEach((p) => {
       p.addEventListener("click", () => {
         if (p.dataset.tab !== "picker") this.stopLive();
@@ -587,7 +561,6 @@ const Activities = {
       resultCircle.style.background = combo[3];
       resultLabel.textContent = combo[2];
     } else {
-      // Fallback: simple RGB average for combinations not in the reference table.
       const ra = hexToRgb(this.slotA.hex), rb = hexToRgb(this.slotB.hex);
       const blend = rgbToHex(
         Math.round((ra.r + rb.r) / 2),

@@ -1,3 +1,6 @@
+// ---------- Backend Tunnel Configuration ----------
+const BACKEND_URL = "https://accommodation-tested-resolution-miracle.trycloudflare.com";
+
 // ---------- Simple page router ----------
 const pages = ["home", "colorassist", "ishihara", "about"];
 
@@ -107,7 +110,7 @@ async function sendToDaltonAI(userPrompt) {
   }
 
   try {
-    const res = await fetch("/api/chat", {
+    const res = await fetch(`${BACKEND_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

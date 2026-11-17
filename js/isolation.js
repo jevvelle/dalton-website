@@ -1,20 +1,6 @@
 // =====================================================================
 // COLOR ISOLATION
 // =====================================================================
-// This tab supports two independent sources, switchable with the buttons
-// above the swatches:
-//   1. Dalton's Camera (backend mode) — the existing Python-backend-driven
-//      MJPEG stream from Dalton's ESP32-CAM. HSV isolation for this mode
-//      still runs entirely on the backend (see backend/color_processor.py
-//      and backend/camera.py); nothing about that path has changed here.
-//   2. Upload File (local mode) — an uploaded photo, isolated entirely in
-//      the browser with a client-side HSV conversion (see isolateHSV
-//      below). No network request is made for this mode.
-//
-// Uploading a photo from this tab, the AI Color Assist tab, or the Color
-// Picker tab shares the same image across all three (see the central
-// dispatcher in colorAssist.js), so switching to this tab after uploading
-// elsewhere already has a photo ready to isolate.
 
 const ISO_COLORS = [
   { key: "normal", label: "Normal", hex: "#ffffff" },
@@ -27,7 +13,6 @@ const ISO_COLORS = [
 ];
 
 // ---------- Local (client-side) HSV isolation ----------
-// Standard RGB -> HSV conversion; hue is returned in degrees (0-360).
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -49,10 +34,6 @@ function hueInRanges(h, ranges) {
   return ranges.some(([lo, hi]) => h >= lo && h < hi);
 }
 
-// Isolates one color band on a canvas already holding an image: pixels
-// whose hue falls in colorObj's range (and that are saturated/bright
-// enough to have a meaningful hue at all) are left alone; every other
-// pixel is converted to its grayscale luminance.
 function isolateHSV(ctx, canvas, colorObj) {
   const MIN_SAT = 0.18;
   const MIN_VAL = 0.12;
@@ -70,8 +51,6 @@ function isolateHSV(ctx, canvas, colorObj) {
   ctx.putImageData(imageData, 0, 0);
 }
 
-// Draws the currently uploaded photo onto the local canvas and applies
-// the selected color band's isolation (or leaves it untouched for "normal").
 const LocalIsolation = {
   canvas: null,
   img: null,
@@ -103,16 +82,11 @@ const LocalIsolation = {
 };
 
 // ---------- Dalton's live camera isolation — Python backend driven ----------
-// Displays the backend's live MJPEG stream (one shared connection to
-// Dalton's ESP32-CAM, processed with OpenCV/NumPy in Python) and POSTs
-// color choices to /set_color so the backend applies the right HSV
-// isolation to the next frames. /status is polled periodically to show
-// connection health. See backend/color_processor.py and backend/camera.py.
 const BackendIsolation = {
   current: "normal",
   pollTimer: null,
   started: false,
-  mode: "backend", // "backend" (Dalton's camera) | "local" (uploaded photo)
+  mode: "backend",
 
   init() {
     this.renderSwatches();
@@ -120,9 +94,6 @@ const BackendIsolation = {
 
     document.getElementById("iso-dalton-btn").addEventListener("click", () => this.switchToBackend());
 
-    // Only start the stream/poll once — switching tabs back and forth
-    // should not open additional connections to the backend or the
-    // ESP32-CAM.
     document.querySelectorAll("#ca-pillbar .pill").forEach((p) => {
       p.addEventListener("click", () => {
         if (p.dataset.tab === "isolation" && !this.started && this.mode === "backend") this.start();
@@ -141,7 +112,6 @@ const BackendIsolation = {
     this.pollTimer = setInterval(() => this.poll(), 3000);
   },
 
-  // ---- Source switching ----
   switchToBackend() {
     this.mode = "backend";
     document.getElementById("iso-canvas").style.display = "none";
@@ -183,6 +153,8 @@ const BackendIsolation = {
   startStream() {
     const img = document.getElementById("iso-stream");
     const placeholder = document.getElementById("iso-placeholder");
+    const baseUrl = typeof BACKEND_URL !== "undefined" ? BACKEND_URL : "";
+
     img.onload = () => {
       if (this.mode !== "backend") return;
       img.style.display = "";
@@ -196,9 +168,7 @@ const BackendIsolation = {
         placeholder.textContent = "Can't reach the video stream — is the Python backend (app.py) running?";
       }
     };
-    // A single <img> pointed at the MJPEG endpoint keeps exactly one
-    // connection open to the backend for the lifetime of the page.
-    img.src = "/video_feed";
+    img.src = `${baseUrl}/video_feed`;
   },
 
   async setColor(colorObj, btnEl) {
@@ -213,8 +183,9 @@ const BackendIsolation = {
       return;
     }
 
+    const baseUrl = typeof BACKEND_URL !== "undefined" ? BACKEND_URL : "";
     try {
-      const res = await fetch("/set_color", {
+      const res = await fetch(`${baseUrl}/set_color`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ color: colorObj.key }),
@@ -244,8 +215,9 @@ const BackendIsolation = {
   },
 
   async poll() {
+    const baseUrl = typeof BACKEND_URL !== "undefined" ? BACKEND_URL : "";
     try {
-      const res = await fetch("/status");
+      const res = await fetch(`${baseUrl}/status`);
       if (!res.ok) throw new Error("bad status");
       const data = await res.json();
       document.getElementById("iso-status-backend").textContent = "Online";
