@@ -44,7 +44,6 @@ function fitCanvasToImage(canvas, img, maxWidth) {
   canvas.height = Math.round(img.height * scale);
 }
 function fitCanvasToSource(canvas, source, maxWidth) {
-  // Works for both <img> (naturalWidth/width) and <video> (videoWidth) sources.
   const w = source.videoWidth || source.naturalWidth || source.width;
   const h = source.videoHeight || source.naturalHeight || source.height;
   const scale = Math.min(1, maxWidth / w);
@@ -175,6 +174,7 @@ const AIAssist = {
   stream: null,
   video: null,
   rafId: null,
+  _lastRender: 0,
   vision: "protanomaly",
   canvasNormal: null,
   canvasSimulated: null,
@@ -295,7 +295,11 @@ const AIAssist = {
 
   loop() {
     if (!this.liveMode) return;
-    this.render();
+    const now = performance.now();
+    if (!this._lastRender || now - this._lastRender >= 65) {
+      this.render();
+      this._lastRender = now;
+    }
     this.rafId = requestAnimationFrame(() => this.loop());
   },
 
@@ -344,6 +348,7 @@ const Picker = {
   source: null,
   liveMode: null,
   rafId: null,
+  _lastRender: 0,
   canvas: null,
   recents: [],
 
@@ -418,8 +423,12 @@ const Picker = {
 
   loop() {
     if (this.liveMode !== "dalton") return;
-    const ctx = this.canvas.getContext("2d");
-    ctx.drawImage(this.source, 0, 0, this.canvas.width, this.canvas.height);
+    const now = performance.now();
+    if (!this._lastRender || now - this._lastRender >= 65) {
+      const ctx = this.canvas.getContext("2d");
+      ctx.drawImage(this.source, 0, 0, this.canvas.width, this.canvas.height);
+      this._lastRender = now;
+    }
     this.rafId = requestAnimationFrame(() => this.loop());
   },
 

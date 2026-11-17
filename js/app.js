@@ -102,11 +102,16 @@ async function sendToDaltonAI(userPrompt) {
   chatHistory.appendChild(aiBubble);
   chatHistory.scrollTop = chatHistory.scrollHeight;
 
-  // Extract base64 frame data from canvas if available
+  // Extract base64 frame data from canvas if a local photo was uploaded;
+  // safely ignore SecurityError if tainted by cross-origin live stream so backend uses ESP32 frame.
   let uploadedImageData = null;
   const activeCanvas = document.getElementById("ai-canvas-normal") || document.getElementById("pick-canvas");
   if (activeCanvas && activeCanvas.width > 0) {
-    uploadedImageData = activeCanvas.toDataURL("image/jpeg", 0.85);
+    try {
+      uploadedImageData = activeCanvas.toDataURL("image/jpeg", 0.85);
+    } catch (e) {
+      uploadedImageData = null;
+    }
   }
 
   try {
