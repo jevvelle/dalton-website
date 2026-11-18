@@ -1,5 +1,5 @@
 // ---------- Backend Tunnel Configuration ----------
-const BACKEND_URL = "https://accommodation-tested-resolution-miracle.trycloudflare.com";
+const BACKEND_URL = "https://sink-hoped-louisiana-attract.trycloudflare.com";
 
 // ---------- Simple page router ----------
 const pages = ["home", "colorassist", "ishihara", "about"];
