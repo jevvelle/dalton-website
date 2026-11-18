@@ -1,5 +1,5 @@
 """
-A single, shared connection to Dalton's ESP32-CAM MJPEG stream.
+A single, shared connection to Project Dalton's ESP32-CAM MJPEG stream.
 Parses multipart JPEG frames continuously, prioritizing real-time low latency.
 """
 
@@ -52,29 +52,29 @@ class CameraStream:
                     self._connected = True
 
                 while self._running:
-                    # Read incoming chunks
-                    chunk = stream.read(4096)
+                    # Read larger 64KB chunks to keep up with Wi-Fi throughput
+                    chunk = stream.read(65536)
                     if not chunk:
                         break
                     bytes_data += chunk
 
                     # Find the LAST complete JPEG frame in the buffer (Real-time catch-up)
-                    a = bytes_data.find(b'\xff\xd8')
-                    b = bytes_data.rfind(b'\xff\xd9')
+                    a = bytes_data.find(b'\xff\xd8')    # Start of JPEG
+                    b = bytes_data.rfind(b'\xff\xd9')   # End of LATEST JPEG in buffer
 
                     if a != -1 and b != -1 and a < b:
-                        # Extract the freshest frame and clear the old buffer
+                        # Extract the freshest frame and flush the old buffer
                         jpg = bytes_data[a:b+2]
                         bytes_data = bytes_data[b+2:]
 
-                        # Decode and update frame
+                        # Decode frame
                         frame = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
                         if frame is not None:
                             with self._lock:
                                 self._frame = frame
                                 self._connected = True
 
-                    # Cap buffer length to prevent memory lag
+                    # Safety cap: Clear buffer if network stutters
                     if len(bytes_data) > 100000:
                         bytes_data = b''
 
