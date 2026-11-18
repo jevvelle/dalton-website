@@ -125,6 +125,14 @@ async function sendToDaltonAI(userPrompt) {
       })
     });
 
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Backend HTTP error:", res.status, errText);
+      aiBubble.innerText = `Backend error (${res.status}). Check Flask terminal.`;
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+      return;
+    }
+
     const data = await res.json();
     if (data.ok && data.reply) {
       aiBubble.innerText = data.reply;
@@ -133,7 +141,7 @@ async function sendToDaltonAI(userPrompt) {
     }
   } catch (err) {
     console.error("AI Chat Error:", err);
-    aiBubble.innerText = "Failed to communicate with backend.";
+    aiBubble.innerText = "Tunnel connection dropped — check that cloudflared is still running and matches BACKEND_URL.";
   }
 
   chatHistory.scrollTop = chatHistory.scrollHeight;
