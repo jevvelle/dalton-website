@@ -7,8 +7,9 @@ Endpoints:
                              used by AI Color Assist and the Color Picker
     POST /set_color       -> {"color": "<red|yellow|green|blue|orange|purple|normal>"}
     GET  /status          -> camera connection + active color mode
+
     POST /api/scan        -> Trigger Gemini Vision AI analysis on current frame
-    POST /api/chat        -> Conversational AI endpoint (custom prompts + uploaded images)
+    POST /api/chat        -> Conversational AI endpoint (handles custom prompts + uploaded images)
     POST /api/speak       -> Trigger Text-To-Speech audio queue directly
 """
 
@@ -20,7 +21,7 @@ import numpy as np
 from flask import Blueprint, Response, jsonify, request
 
 from backend.camera import camera
-from backend.color_processor import VALID_MODES, isolate_color
+from backend.color_processor import VALID_MODES, isolate_color, resize_for_stream
 from backend.config import Config
 from backend.robot import analyze_frame, analyze_frame_with_prompt, speak_text
 
@@ -31,7 +32,8 @@ state = {"color": "normal"}
 
 
 def _status_frame(message):
-    """Placeholder frame shown while the ESP32-CAM is unreachable."""
+    """A simple placeholder frame shown while the ESP32-CAM is unreachable,
+    so the browser never just shows a broken image with no explanation."""
     frame = np.full((360, 640, 3), 32, dtype=np.uint8)
     cv2.putText(
         frame, message, (24, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (235, 235, 235), 2, cv2.LINE_AA
@@ -50,14 +52,11 @@ def _generate_frames(apply_isolation=True):
                 else "Dalton's camera is disconnected. Check the ESP32-CAM and stream URL."
             )
         else:
-            # Downscale to 480px wide to cut hotspot + Cloudflare tunnel bandwidth
-            h, w = frame.shape[:2]
-            if w > 480:
-                frame = cv2.resize(frame, (480, int(480 * h / w)))
+            frame = resize_for_stream(frame)
             if apply_isolation:
                 frame = isolate_color(frame, state["color"])
 
-        ok, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 65])
+        ok, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, Config.JPEG_QUALITY])
         if not ok:
             time.sleep(Config.FRAME_INTERVAL)
             continue
@@ -71,13 +70,27 @@ def _generate_frames(apply_isolation=True):
 
 @bp.route("/video_feed")
 def video_feed():
-    return Response(_generate_frames(apply_isolation=True), mimetype="multipart/x-mixed-replace; boundary=frame")
+    resp = Response(
+        _generate_frames(apply_isolation=True),
+        mimetype="multipart/x-mixed-replace; boundary=frame",
+    )
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["X-Accel-Buffering"] = "no"
+    return resp
 
 
 @bp.route("/video_feed_raw")
 def video_feed_raw():
-    """The unprocessed camera feed — always true colors."""
-    return Response(_generate_frames(apply_isolation=False), mimetype="multipart/x-mixed-replace; boundary=frame")
+    """The unprocessed camera feed — always the true colors, regardless of
+    whatever isolation mode the Color Isolation tab currently has active.
+    """
+    resp = Response(
+        _generate_frames(apply_isolation=False),
+        mimetype="multipart/x-mixed-replace; boundary=frame",
+    )
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["X-Accel-Buffering"] = "no"
+    return resp
 
 
 @bp.route("/set_color", methods=["POST"])
@@ -134,7 +147,7 @@ def api_chat():
     """Allows interactive conversation with Dalton AI using camera input or uploaded image."""
     payload = request.get_json(silent=True) or {}
     user_prompt = str(payload.get("prompt", "")).strip()
-    image_data = payload.get("image_data")
+    image_data = payload.get("image_data")  # Base64 string from browser canvas upload
 
     if not user_prompt:
         return jsonify({"ok": False, "error": "No prompt provided."}), 400

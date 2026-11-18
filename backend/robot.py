@@ -1,6 +1,5 @@
 """
 Gemini Vision & Text-To-Speech Processing Pipeline for Project Dalton.
-Optimized for low-latency multimodal responses and non-blocking TTS.
 """
 
 import json
@@ -14,23 +13,19 @@ from google.genai.errors import APIError
 from pydantic import BaseModel
 from backend.config import Config
 
-# --- Active Priority Fallback Models (Fastest production models first) ---
+# Exact active models verified for your API key (fastest first)
 FALLBACK_MODELS = [
     'gemini-3.5-flash-lite',
     'gemini-3.5-flash',
     'gemini-3.6-flash',
-    'gemini-3.7-flash'
+    'gemini-3.7-flash',
 ]
 
-# Initialize Gemini Client from Config / .env
 client = genai.Client(api_key=Config.GEMINI_API_KEY)
-
-# --- Thread-Safe Native Windows Speech Queue ---
 speech_queue = queue.Queue()
 
 
 def tts_worker():
-    """Isolated background worker thread using Windows Native SAPI Voice (Zero-Freeze)."""
     try:
         import pythoncom
         import win32com.client
@@ -67,15 +62,13 @@ tts_thread.start()
 
 
 def speak_text(text):
-    """Enqueue speech requests safely without locking Flask."""
     if text:
         speech_queue.put(text)
 
 
-# --- Pydantic Response Schemas ---
 class DetectedObject(BaseModel):
     label: str
-    box_2d: list[int]  # [y_min, x_min, y_max, x_max] normalized 0-1000
+    box_2d: list[int]
     color_name: str
     color_hex: str
     relative_position: str
@@ -87,7 +80,6 @@ class ImageAnalysisResponse(BaseModel):
 
 
 def query_gemini_with_fallback(image_bytes, prompt, use_schema=True):
-    """Queries active Gemini models with fast config and automatic fallback."""
     for model_name in FALLBACK_MODELS:
         for attempt in range(1, 3):
             try:
@@ -95,114 +87,82 @@ def query_gemini_with_fallback(image_bytes, prompt, use_schema=True):
                 if image_bytes:
                     contents.insert(0, types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg'))
 
-                config_kwargs = {
-                    "temperature": 0.2,
-                    "thinking_config": types.ThinkingConfig(thinking_budget=0),
-                }
+                config_kwargs = {"temperature": 0.2}
                 if use_schema and image_bytes:
                     config_kwargs["response_mime_type"] = "application/json"
                     config_kwargs["response_schema"] = ImageAnalysisResponse
                 else:
-                    config_kwargs["max_output_tokens"] = 90
+                    config_kwargs["max_output_tokens"] = 100
 
-                response = client.models.generate_content(
+                return client.models.generate_content(
                     model=model_name,
                     contents=contents,
                     config=types.GenerateContentConfig(**config_kwargs),
                 )
-                return response
             except APIError as e:
                 if "503" in str(e):
-                    time.sleep(0.6)
+                    time.sleep(0.5)
                 else:
                     print(f"API Error on {model_name}: {e}")
                     break
             except Exception as e:
-                print(f"Unexpected error on {model_name}: {e}")
+                print(f"Error on {model_name}: {e}")
                 break
     return None
 
 
 def analyze_frame(frame, trigger_speech=True):
-    """Encodes small BGR frame, queries Gemini, speaks results, and returns dictionary."""
     if frame is None:
         return {"error": "No frame captured from camera", "objects": []}
 
     try:
         h, w = frame.shape[:2]
-        small_frame = cv2.resize(frame, (320, int(320 * h / w)))
-        success, encoded_image = cv2.imencode('.jpg', small_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
-
-        if not success:
+        small_frame = cv2.resize(frame, (400, int(400 * h / w)))
+        ok, encoded_image = cv2.imencode('.jpg', small_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+        if not ok:
             return {"error": "Failed to encode frame", "objects": []}
 
-        image_bytes = encoded_image.tobytes()
-
-        prompt = """
-        Identify primary key objects in this image for a student with Color Vision Deficiency (CVD).
-        For every object:
-        1. Bounding box coordinates normalized 0-1000: [y_min, x_min, y_max, x_max].
-        2. Primary color name and exact hex code.
-        3. Relative position (e.g., center, left, right).
-        4. cvd_explanation: Brief 1-sentence explanation tailored for a CVD user.
-        Keep descriptions concise, direct, and short enough for text-to-speech.
-        """
-
-        response = query_gemini_with_fallback(image_bytes, prompt, use_schema=True)
-
+        prompt = (
+            "Identify primary objects in this image for a student with Color Vision Deficiency. "
+            "Provide normalized 0-1000 box_2d, primary color_name, color_hex, relative_position, "
+            "and a concise 1-sentence cvd_explanation."
+        )
+        response = query_gemini_with_fallback(encoded_image.tobytes(), prompt, use_schema=True)
         if not response or not response.text:
-            if trigger_speech:
-                speak_text("Server busy. Please try again.")
             return {"error": "Gemini API unavailable", "objects": []}
 
         data = json.loads(response.text)
         detected_objects = data.get("objects", [])
-
-        spoken_sentences = []
-        for obj in detected_objects:
-            explanation = obj.get('cvd_explanation', f"The {obj.get('label')} is colored {obj.get('color_name')}.")
-            spoken_sentences.append(explanation)
-
-        full_speech = " ".join(spoken_sentences)
+        full_speech = " ".join(
+            obj.get('cvd_explanation', f"The {obj.get('label')} is {obj.get('color_name')}.")
+            for obj in detected_objects
+        )
         if full_speech and trigger_speech:
             speak_text(full_speech)
-        elif not full_speech and trigger_speech:
-            speak_text("No clear objects detected.")
 
         return {"status": "success", "objects": detected_objects, "speech": full_speech}
-
     except Exception as e:
-        print(f"Error in analysis pipeline: {e}")
-        if trigger_speech:
-            speak_text("Error processing scan.")
+        print(f"Scan error: {e}")
         return {"error": str(e), "objects": []}
 
 
 def analyze_frame_with_prompt(frame, user_prompt):
-    """Fast multimodal response: small JPEG payload + concise token cap + non-blocking TTS."""
     try:
         image_bytes = None
         if frame is not None:
             h, w = frame.shape[:2]
-            small = cv2.resize(frame, (320, int(320 * h / w)))
-            ok, encoded = cv2.imencode(".jpg", small, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+            small = cv2.resize(frame, (400, int(400 * h / w)))
+            ok, encoded = cv2.imencode(".jpg", small, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
             if ok:
                 image_bytes = encoded.tobytes()
 
-        if image_bytes is None:
-            prompt = f"You are Dalton AI for color-blind students. Answer in 1-2 short sentences: {user_prompt}"
-        else:
-            prompt = (
-                "You are Dalton AI, an assistive color guide for students with color vision deficiency. "
-                "Answer in 1-2 clear, concise sentences suitable for text-to-speech. "
-                "If it's an uncolored drawing, state what colors items SHOULD be. "
-                "If it's a real scene, state the objects and their visible colors. "
-                f"User question: {user_prompt}"
-            )
-
+        prompt = (
+            "You are Dalton AI, an assistive color guide for students with color vision deficiency. "
+            "Answer in 1-2 short, clear sentences suitable for text-to-speech. "
+            f"User question: {user_prompt}"
+        )
         response = query_gemini_with_fallback(image_bytes, prompt, use_schema=False)
-        reply_text = (response.text or "Unable to analyze the image frame right now.").strip()
-
+        reply_text = (response.text if response and response.text else "Unable to analyze the frame right now.").strip()
         speak_text(reply_text)
         return {"speech": reply_text}
     except Exception as e:
